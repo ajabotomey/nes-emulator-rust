@@ -42,7 +42,7 @@ pub enum AddressingMode {
     NoneAddressing,
 }
 
-trait Mem {
+pub trait Mem {
     fn mem_read(&self, addr: u16) -> u8;
     fn mem_write(&mut self, addr: u16, data: u8);
 
@@ -238,8 +238,8 @@ impl CPU {
     }
 
     pub fn load(&mut self, program: Vec<u8>) {
-        self.memory[0x8000..(0x8000 + program.len())].copy_from_slice(&program[..]);
-        self.mem_write_u16(0xFFFC, 0x8000);
+        self.memory[0x0600..(0x0600 + program.len())].copy_from_slice(&program[..]);
+        self.mem_write_u16(0xFFFC, 0x0600);
     }
 
     pub fn reset(&mut self) {
@@ -532,6 +532,11 @@ impl CPU {
     }
 
     pub fn run(&mut self) {
+        self.run_with_callback(|_| {});
+    }
+
+    pub fn run_with_callback<F>(&mut self, mut callback: F)
+    where F: FnMut(&mut CPU) {
         let ref opcodes: HashMap<u8, &'static opcodes::OpCode> = *opcodes::OPCODES_MAP;
 
         loop {
@@ -585,13 +590,13 @@ impl CPU {
 
                 0x4a => self.lsr_accumulator(),
 
-                0x46 | 0x56 | 0x4e | 0x5e | 0x5a => {
+                0x46 | 0x56 | 0x4e | 0x5e => {
                     self.lsr(&opcode.mode);
                 }
 
                 0x0a => self.asl_accumulator(),
 
-                0x06 | 0x16 | 0x0e | 0x1e | 0x1a => {
+                0x06 | 0x16 | 0x0e | 0x1e => {
                     self.asl(&opcode.mode);
                 }
 
@@ -613,7 +618,7 @@ impl CPU {
 
                 0xc8 => self.iny(),
 
-                0xc6 | 0xd6 | 0xce | 0xde | 0xda => {
+                0xc6 | 0xd6 | 0xce | 0xde => {
                     self.dec(&opcode.mode);
                 }
 
@@ -621,20 +626,23 @@ impl CPU {
 
                 0x88 => self.dey(),
 
+                // CMP
                 0xc9 | 0xc5 | 0xd5 | 0xcd | 0xdd | 0xd9 | 0xc1 | 0xd1 => {
                     self.compare(&opcode.mode, self.register_a);
                 }
 
+                // CPY
                 0xc0 | 0xc4 | 0xcc => {
                     self.compare(&opcode.mode, self.register_y);
                 }
 
+                // CPX
                 0xe0 | 0xe4 | 0xec => {
                     self.compare(&opcode.mode, self.register_x);
                 }
 
                 0x4c => { // JMP Absolute
-                    let addr = self.get_operand_address(&opcode.mode);
+                    let addr = self.mem_read_u16(self.program_counter);
                     self.program_counter = addr;
                 }
 
@@ -672,14 +680,14 @@ impl CPU {
                 }
 
                 0xd0 => self.branch(!self.status.contains(CpuFlags::ZERO)), // BNE
-                0xf0 => self.branch(self.status.contains(CpuFlags::ZERO)), // BEQ
-                0x90 => self.branch(!self.status.contains(CpuFlags::CARRY)), // BCC
-                0xb0 => self.branch(self.status.contains(CpuFlags::CARRY)), // BCS
+                0x70 => self.branch(self.status.contains(CpuFlags::OVERFLOW)), // BVS
+                0x50 => self.branch(!self.status.contains(CpuFlags::OVERFLOW)), // BVC
                 0x10 => self.branch(!self.status.contains(CpuFlags::NEGATIVE)), // BPL
                 0x30 => self.branch(self.status.contains(CpuFlags::NEGATIVE)), // BMI
-                0x50 => self.branch(!self.status.contains(CpuFlags::OVERFLOW)), // BVC
-                0x70 => self.branch(self.status.contains(CpuFlags::OVERFLOW)), // BVS
-
+                0xf0 => self.branch(self.status.contains(CpuFlags::ZERO)), // BEQ
+                0xb0 => self.branch(self.status.contains(CpuFlags::CARRY)), // BCS
+                0x90 => self.branch(!self.status.contains(CpuFlags::CARRY)), // BCC
+                
                 0x24 | 0x2c => self.bit(&opcode.mode), // BIT
 
                 0x85 | 0x95 | 0x8d | 0x9d | 0x99 | 0x81 | 0x91 => { // sta
@@ -736,6 +744,8 @@ impl CPU {
             if program_counter_state == self.program_counter {
                 self.program_counter += (opcode.len - 1) as u16;
             }
+
+            callback(self);
         }
     }
 
