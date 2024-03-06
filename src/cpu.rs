@@ -159,11 +159,10 @@ impl CPU {
         let value = self.mem_read(addr);
 
         self.register_a = value;
-        self.update_zero_and_negative_flags(self.register_a);
     }
 
     fn sta(&mut self, mode: &AddressingMode) {
-        let addr = self.get_operand_address(&mode);
+        let addr = self.get_operand_address(mode);
         self.mem_write(addr, self.register_a);
     }
 
@@ -256,9 +255,9 @@ impl CPU {
 
     pub fn load(&mut self, program: Vec<u8>) {
         for i in 0..(program.len() as u16) {
-            self.mem_write(0x0600 + i, program[i as usize]);
+            self.mem_write(0x8600 + i, program[i as usize]);
         }
-        self.mem_write_u16(0xFFFC, 0x0600);
+        self.mem_write_u16(0xFFFC, 0x8600);
     }
 
     pub fn reset(&mut self) {
@@ -300,7 +299,7 @@ impl CPU {
         if (data ^ result) & (result ^ self.register_a) & 0x80 != 0 {
             self.status.insert(CpuFlags::OVERFLOW);
         } else {
-            self.status.remove(CpuFlags::OVERFLOW);
+            self.status.remove(CpuFlags::OVERFLOW)
         }
 
         self.set_register_a(result);
@@ -325,7 +324,7 @@ impl CPU {
 
     fn stack_push(&mut self, data: u8) {
         self.mem_write((STACK as u16) + self.stack_pointer as u16, data);
-        self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+        self.stack_pointer = self.stack_pointer.wrapping_sub(1)
     }
 
     fn stack_push_u16(&mut self, data: u16) {
@@ -351,7 +350,7 @@ impl CPU {
         }
 
         data = data << 1;
-        self.set_register_a(data);
+        self.set_register_a(data)
     }
 
     fn asl(&mut self, mode: &AddressingMode) -> u8 {
@@ -360,7 +359,7 @@ impl CPU {
         if data >> 7 == 1 {
             self.set_carry_flag();
         } else {
-            self.clear_carry_flag()
+            self.clear_carry_flag();
         }
         data = data << 1;
         self.mem_write(addr, data);
@@ -376,7 +375,7 @@ impl CPU {
             self.clear_carry_flag();
         }
         data = data >> 1;
-        self.set_register_a(data);
+        self.set_register_a(data)
     }
 
     fn lsr(&mut self, mode: &AddressingMode) -> u8 {
@@ -399,9 +398,9 @@ impl CPU {
         let old_carry = self.status.contains(CpuFlags::CARRY);
 
         if data >> 7 == 1 {
-            self.set_carry_flag()
+            self.set_carry_flag();
         } else {
-            self.clear_carry_flag()
+            self.clear_carry_flag();
         }
 
         data = data << 1;
@@ -410,7 +409,7 @@ impl CPU {
         }
 
         self.mem_write(addr, data);
-        self.update_zero_and_negative_flags(data);
+        self.update_negative_flags(data);
         data
     }
 
@@ -419,9 +418,9 @@ impl CPU {
         let old_carry = self.status.contains(CpuFlags::CARRY);
 
         if data >> 7 == 1 {
-            self.set_carry_flag()
+            self.set_carry_flag();
         } else {
-            self.clear_carry_flag()
+            self.clear_carry_flag();
         }
 
         data = data << 1;
@@ -429,7 +428,7 @@ impl CPU {
             data = data | 1;
         }
 
-        self.set_register_a(data)
+        self.set_register_a(data);
     }
 
     fn ror(&mut self, mode: &AddressingMode) -> u8 {
@@ -449,7 +448,7 @@ impl CPU {
         }
 
         self.mem_write(addr, data);
-        self.update_zero_and_negative_flags(data);
+        self.update_negative_flags(data);
         data
     }
 
@@ -773,47 +772,47 @@ impl CPU {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::cartridge::test;
 
     #[test]
     fn test_0xa9_lda_immediate_load_data() {
-        let bus = Bus::new();
+        let bus = Bus::new(test::test_rom());
         let mut cpu = CPU::new(bus);
         cpu.load_and_run(vec![0xa9, 0x05, 0x00]);
         assert_eq!(cpu.register_a, 5);
-        assert!(cpu.status.bits & 0b0000_0010 == 0b00);
-        assert!(cpu.status.bits & 0b1000_0000 == 0);
+        assert!(cpu.status.bits() & 0b0000_0010 == 0b00);
+        assert!(cpu.status.bits() & 0b1000_0000 == 0);
     }
 
     #[test]
     fn test_0xaa_tax_move_a_to_x() {
-        let bus = Bus::new();
+        let bus = Bus::new(test::test_rom());
         let mut cpu = CPU::new(bus);
-        cpu.load(vec![0xaa, 0x00]);
-        cpu.reset();
         cpu.register_a = 10;
-        cpu.run();
+        cpu.load_and_run(vec![0xaa, 0x00]);
+        assert_eq!(cpu.register_x, 10)
     }
 
     #[test]
     fn test_5_ops_working_together() {
-        let bus = Bus::new();
+        let bus = Bus::new(test::test_rom());
         let mut cpu = CPU::new(bus);
         cpu.load_and_run(vec![0xa9, 0xc0, 0xaa, 0xe8, 0x00]);
-        assert_eq!(cpu.register_x, 0xc1);
+        assert_eq!(cpu.register_x, 0xc1)
     }
 
     #[test]
     fn test_inx_overflow() {
-        let bus = Bus::new();
+        let bus = Bus::new(test::test_rom());
         let mut cpu = CPU::new(bus);
         cpu.register_x = 0xff;
         cpu.load_and_run(vec![0xe8, 0xe8, 0x00]);
-        assert_eq!(cpu.register_x, 1);
+        assert_eq!(cpu.register_x, 1)
     }
 
     #[test]
     fn test_lda_from_memory() {
-        let bus = Bus::new();
+        let bus = Bus::new(test::test_rom());
         let mut cpu = CPU::new(bus);
         cpu.mem_write(0x10, 0x55);
 

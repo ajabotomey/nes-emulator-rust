@@ -1,11 +1,13 @@
 pub mod cpu;
 pub mod opcodes;
 pub mod bus;
+pub mod cartridge;
 
 use cpu::Mem;
 use cpu::CPU;
 use rand::Rng;
 use bus::Bus;
+use cartridge::Rom;
 
 use sdl2::event::Event;
 use sdl2::EventPump;
@@ -54,7 +56,7 @@ fn read_screen_state(cpu: &CPU, frame: &mut [u8; 32 * 3 * 32]) -> bool {
 fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
     for event in event_pump.poll_iter() {
         match event {
-            Event::Quit { .. } => std::process::exit(0),
+            Event::Quit{..} | Event::KeyDown{ keycode: Some(Keycode::Escape),..} => std::process::exit(0),
             Event::KeyDown { keycode: Some(Keycode::W), .. } => {
                 cpu.mem_write(0xff, 0x77);
             }
@@ -115,11 +117,11 @@ fn main() {
     ];
 
     // load the game
-    let bus = Bus::new();
+    let bytes: Vec<u8> = std::fs::read("snake.nes").unwrap();
+    let rom = Rom::new(&bytes).unwrap();
+    let bus = Bus::new(rom);
     let mut cpu = CPU::new(bus);
-    cpu.load(game_code);
     cpu.reset();
-    cpu.program_counter = 0x0600;
 
     let mut screen_state = [0 as u8; 32 * 3 * 32];
     let mut rng = rand::thread_rng();
