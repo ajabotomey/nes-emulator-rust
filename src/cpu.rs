@@ -4,14 +4,14 @@ use crate::bus::Bus;
 
 bitflags! {
     pub struct CpuFlags: u8 {
-        const CARRY = 0b00000001;
-        const ZERO = 0b00000010;
+        const CARRY             = 0b00000001;
+        const ZERO              = 0b00000010;
         const INTERRUPT_DISABLE = 0b00000100;
-        const DECIMAL_MODE = 0b00001000;
-        const BREAK = 0b00010000;
-        const BREAK2 = 0b00100000;
-        const OVERFLOW = 0b01000000;
-        const NEGATIVE = 0b10000000;
+        const DECIMAL_MODE      = 0b00001000;
+        const BREAK             = 0b00010000;
+        const BREAK2            = 0b00100000;
+        const OVERFLOW          = 0b01000000;
+        const NEGATIVE          = 0b10000000;
     }
 }
 
@@ -202,7 +202,15 @@ impl CPU {
             self.status.remove(CpuFlags::ZERO);
         }
 
-        if result & 0b1000_0000 != 0 {
+        if result >> 7 == 1 {
+            self.status.insert(CpuFlags::NEGATIVE);
+        } else {
+            self.status.remove(CpuFlags::NEGATIVE);
+        }
+    }
+
+    fn update_negative_flags(&mut self, result: u8) {
+        if result >> 7 == 1 {
             self.status.insert(CpuFlags::NEGATIVE);
         } else {
             self.status.remove(CpuFlags::NEGATIVE);
