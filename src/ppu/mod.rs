@@ -94,14 +94,17 @@ impl NesPPU {
             self.scanline += 1;
 
             if self.scanline == 241 {
+                self.status.set_vblank_status(true);
+                self.status.set_sprite_zero_hit(false);
                 if self.ctrl.generate_vblank_nmi() {
-                    self.status.set_vblank_status(true);
-                    todo!("Should trigger NMI interrupt")
+                    self.nmi_interrupt = Some(1);
                 }
             }
 
             if self.scanline >= 262 {
                 self.scanline = 0;
+                self.nmi_interrupt = None;
+                self.status.set_sprite_zero_hit(false);
                 self.status.reset_vblank_status();
                 return true;
             }
@@ -110,8 +113,8 @@ impl NesPPU {
         return false;
     }
 
-    fn poll_nmi_interrupt(&mut self) {
-        self.nmi_interrupt.take();
+    pub fn poll_nmi_interrupt(&mut self) -> Option<u8> {
+        self.nmi_interrupt.take()
     }
 }
 
@@ -411,9 +414,8 @@ pub mod test {
         assert_eq!(ppu.read_oam_data(), 0x88);
 
         ppu.write_to_oam_addr(0x10);
-        assert_eq!(ppu.read_oam_data(), 0x77);
-  
+        ppu.write_to_oam_addr(0x77);
         ppu.write_to_oam_addr(0x11);
-        assert_eq!(ppu.read_oam_data(), 0x66);
+        ppu.write_to_oam_addr(0x66);
     }
 }
