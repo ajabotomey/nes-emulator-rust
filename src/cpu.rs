@@ -44,11 +44,11 @@ pub enum AddressingMode {
 }
 
 pub trait Mem {
-    fn mem_read(&self, addr: u16) -> u8;
+    fn mem_read(&mut self, addr: u16) -> u8;
 
     fn mem_write(&mut self, addr: u16, data: u8);
 
-    fn mem_read_u16(&self, pos: u16) -> u16 {
+    fn mem_read_u16(&mut self, pos: u16) -> u16 {
         let lo = self.mem_read(pos) as u16;
         let hi = self.mem_read(pos + 1) as u16;
         (hi << 8) | (lo as u16)
@@ -63,14 +63,14 @@ pub trait Mem {
 }
 
 impl Mem for CPU {
-    fn mem_read(&self, addr: u16) -> u8 {
+    fn mem_read(&mut self, addr: u16) -> u8 {
         self.bus.mem_read(addr)
     }
 
     fn mem_write(&mut self, addr: u16, data: u8) {
         self.bus.mem_write(addr, data)
     }
-    fn mem_read_u16(&self, pos: u16) -> u16 {
+    fn mem_read_u16(&mut self, pos: u16) -> u16 {
         self.bus.mem_read_u16(pos)
     }
 
@@ -92,7 +92,7 @@ impl CPU {
         }
     }
 
-    pub fn get_absolute_address(&self, mode: &AddressingMode, addr: u16) -> u16 {
+    pub fn get_absolute_address(&mut self, mode: &AddressingMode, addr: u16) -> u16 {
         match mode {
             AddressingMode::ZeroPage => self.mem_read(addr) as u16,
             AddressingMode::ZeroPage_X => {
@@ -131,12 +131,12 @@ impl CPU {
             }
 
             _ => {
-                panic!("mode {:?} not supported", mode);
+                panic!("mode {:?} is not supported", mode);
             }
         }
     }
 
-    fn get_operand_address(&self, mode: &AddressingMode) -> u16 {
+    fn get_operand_address(&mut self, mode: &AddressingMode) -> u16 {
         match mode {
             AddressingMode::Immediate => self.program_counter,
             _ => self.get_absolute_address(mode, self.program_counter),
@@ -153,7 +153,7 @@ impl CPU {
 
     fn ldx(&mut self, mode: &AddressingMode) {
 
-        let addr = self.get_operand_address(&mode);
+        let addr = self.get_operand_address(mode);
         let value = self.mem_read(addr);
 
         self.register_x = value;
@@ -257,6 +257,7 @@ impl CPU {
     pub fn load_and_run(&mut self, program: Vec<u8>) {
         self.load(program);
         self.reset();
+        self.program_counter = 0x0600;
         self.run()
     }
 
@@ -586,7 +587,9 @@ impl CPU {
             self.program_counter += 1;
             let program_counter_state = self.program_counter;
 
-            let opcode = opcodes.get(&code).expect(&format!("OpCode {:x} is not recognized", code));
+            let opcode = opcodes
+                .get(&code)
+                .expect(&format!("OpCode {:x} is not recognized", code));
 
             match code {
                 0xa9 | 0xa5 | 0xb5 | 0xad | 0xbd | 0xb9 | 0xa1 | 0xb1 => {
@@ -737,11 +740,15 @@ impl CPU {
                 }
 
                 0x86 | 0x96 | 0x8e => { // stx
-                    self.mem_write(self.get_operand_address(&opcode.mode), self.register_x);
+                    //self.mem_write(self.get_operand_address(&opcode.mode), self.register_x);
+                    let addr = self.get_operand_address(&opcode.mode);
+                    self.mem_write(addr, self.register_x);
                 }
 
                 0x84 | 0x94 | 0x8c => { // sty
-                    self.mem_write(self.get_operand_address(&opcode.mode), self.register_y);
+                    //self.mem_write(self.get_operand_address(&opcode.mode), self.register_y);
+                    let addr = self.get_operand_address(&opcode.mode);
+                    self.mem_write(addr, self.register_y);
                 }
 
                 0xa2 | 0xa6 | 0xb6 | 0xae | 0xbe => { // ldx

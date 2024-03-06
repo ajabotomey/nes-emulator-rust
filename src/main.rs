@@ -3,6 +3,7 @@ pub mod opcodes;
 pub mod bus;
 pub mod cartridge;
 pub mod trace;
+pub mod ppu;
 
 use cpu::Mem;
 use cpu::CPU;
@@ -37,7 +38,7 @@ fn color(byte: u8) -> Color {
     }
 }
 
-fn read_screen_state(cpu: &CPU, frame: &mut [u8; 32 * 3 * 32]) -> bool {
+fn read_screen_state(cpu: &mut CPU, frame: &mut [u8; 32 * 3 * 32]) -> bool {
     let mut frame_idx = 0;
     let mut update = false;
     for i in 0x0200..0x600 {
@@ -76,13 +77,17 @@ fn handle_user_input(cpu: &mut CPU, event_pump: &mut EventPump) {
 }
 
 fn main() {
+    // Backtrace
+    //std::env::set_var("RUST_BACKTRACE", "1");
+
     // Init SDL2
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem
         .window("Snake game", (32.0 * 10.0) as u32, (32.0 * 10.0) as u32)
         .position_centered()
-        .build().unwrap();
+        .build()
+        .unwrap();
 
     let mut canvas = window.into_canvas().present_vsync().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
